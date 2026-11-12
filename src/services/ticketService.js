@@ -17,6 +17,12 @@ function guardar(ticket) {
   return ticket;
 }
 
+/**
+ * Valida y registra un tiquete de Chance para un sorteo abierto.
+ * @param {object} vendedor Vendedor autenticado.
+ * @param {{sorteoId: number, apuestas: Array, cliente?: string}} data Solicitud del tiquete.
+ * @returns {object} Tiquete de Chance guardado.
+ */
 function venderChance(vendedor, { sorteoId, apuestas, cliente }) {
   const sorteo = sorteos.obtener(sorteoId);
   sorteos.verificarVentaPermitida(sorteo, 'CHANCE');
@@ -41,6 +47,12 @@ function venderChance(vendedor, { sorteoId, apuestas, cliente }) {
   });
 }
 
+/**
+ * Valida y registra un tiquete de Baloto para un sorteo abierto.
+ * @param {object} vendedor Vendedor autenticado.
+ * @param {{sorteoId: number, jugadas: Array, cliente?: string}} data Solicitud del tiquete.
+ * @returns {object} Tiquete de Baloto guardado.
+ */
 function venderBaloto(vendedor, { sorteoId, jugadas, cliente }) {
   const sorteo = sorteos.obtener(sorteoId);
   sorteos.verificarVentaPermitida(sorteo, 'BALOTO');
@@ -88,6 +100,13 @@ function consultar(codigo) {
   };
 }
 
+/**
+ * Anula un tiquete elegible y registra quién solicitó la anulación.
+ * @param {string} codigo Código del tiquete.
+ * @param {object} usuario Usuario autenticado que realiza la anulación.
+ * @param {string} motivo Motivo de la anulación.
+ * @returns {object} Tiquete anulado.
+ */
 function anular(codigo, usuario, motivo) {
   const ticket = buscar(codigo);
 
@@ -108,6 +127,12 @@ function anular(codigo, usuario, motivo) {
   return ticket;
 }
 
+/**
+ * Registra el pago de un tiquete activo, ganador y no caducado.
+ * @param {string} codigo Código del tiquete.
+ * @param {object} usuario Vendedor autenticado que realiza el pago.
+ * @returns {object} Registro del pago.
+ */
 function pagarPremio(codigo, usuario) {
   const ticket = buscar(codigo);
   const sorteo = sorteos.obtener(ticket.sorteoId);

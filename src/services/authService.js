@@ -4,6 +4,12 @@ const { getDb } = require('../data/store');
 const { jwtSecret, jwtExpiresIn } = require('../config');
 const AppError = require('../utils/AppError');
 
+/**
+ * Verifica las credenciales de una cuenta activa y genera su token JWT.
+ * @param {string} usuario Nombre de usuario.
+ * @param {string} password Contraseña proporcionada para la verificación.
+ * @returns {{token: string, usuario: object}} Token y perfil público del usuario.
+ */
 function login(usuario, password) {
   if (!usuario || !password) throw new AppError('Usuario y contraseña son obligatorios');
 

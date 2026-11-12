@@ -1,0 +1,727 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Puesto de Chance API",
+    "version": "1.0.0",
+    "description": "API REST para autenticación, sorteos, venta y consulta de tiquetes de Chance y Baloto, premios y caja."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Servidor actual"
+    }
+  ],
+  "tags": [
+    { "name": "Salud", "description": "Disponibilidad del servicio" },
+    { "name": "Autenticación", "description": "Inicio de sesión y perfil de usuario" },
+    { "name": "Sorteos", "description": "Consulta y administración de sorteos" },
+    { "name": "Tiquetes", "description": "Venta, consulta, anulación y pago de tiquetes" },
+    { "name": "Caja", "description": "Resumen y cierre diario de caja" }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Salud"],
+        "summary": "Verificar disponibilidad",
+        "responses": {
+          "200": {
+            "description": "El servicio está disponible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "estado": { "type": "string", "example": "ok" },
+                    "hora": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": ["Autenticación"],
+        "summary": "Iniciar sesión",
+        "description": "Devuelve un token JWT y el perfil público de un usuario activo.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["usuario", "password"],
+                "properties": {
+                  "usuario": { "type": "string", "example": "vendedor1" },
+                  "password": { "type": "string", "format": "password" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Autenticación exitosa",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/v1/auth/perfil": {
+      "get": {
+        "tags": ["Autenticación"],
+        "summary": "Consultar perfil",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Perfil del usuario autenticado",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Usuario" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/sorteos": {
+      "get": {
+        "tags": ["Sorteos"],
+        "summary": "Listar sorteos",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "tipo",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["CHANCE", "BALOTO"] }
+          },
+          {
+            "name": "estado",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["ABIERTO", "JUGADO"] }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de sorteos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Sorteo" }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["Sorteos"],
+        "summary": "Crear sorteo",
+        "description": "Requiere el rol ADMIN. La fecha debe ser futura.",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["tipo", "nombre", "fecha"],
+                "properties": {
+                  "tipo": { "type": "string", "enum": ["CHANCE", "BALOTO"] },
+                  "nombre": { "type": "string", "example": "Lotería de Bogotá" },
+                  "fecha": { "type": "string", "format": "date-time" },
+                  "acumulado": { "type": "integer", "minimum": 0, "default": 0 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sorteo creado",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Sorteo" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/v1/sorteos/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "integer" }
+        }
+      ],
+      "get": {
+        "tags": ["Sorteos"],
+        "summary": "Consultar sorteo",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Detalle del sorteo",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Sorteo" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/v1/sorteos/{id}/resultado": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "integer" }
+        }
+      ],
+      "post": {
+        "tags": ["Sorteos"],
+        "summary": "Registrar resultado y liquidar tiquetes",
+        "description": "Requiere ADMIN. Para CHANCE, resultado es un texto de cuatro dígitos. Para BALOTO, es una jugada con cinco números diferentes entre 1 y 43 y superbalota de 1 a 16.",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["resultado"],
+                "properties": {
+                  "resultado": {
+                    "oneOf": [
+                      { "type": "string", "pattern": "^\\d{4}$", "example": "1234" },
+                      { "$ref": "#/components/schemas/JugadaBaloto" }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resultado registrado",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Sorteo" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/api/v1/tickets/chance": {
+      "post": {
+        "tags": ["Tiquetes"],
+        "summary": "Vender tiquete de Chance",
+        "description": "Requiere VENDEDOR. Acepta de una a cinco apuestas. El sorteo debe estar abierto y respetar el tiempo de cierre de ventas.",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["sorteoId", "apuestas"],
+                "properties": {
+                  "sorteoId": { "type": "integer", "example": 1 },
+                  "cliente": { "type": "string", "nullable": true },
+                  "apuestas": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 5,
+                    "items": { "$ref": "#/components/schemas/ApuestaChance" }
+                  }
+                }
+              },
+              "example": {
+                "sorteoId": 1,
+                "apuestas": [{ "numero": "1234", "modalidad": "DIRECTO", "valor": 1000 }]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tiquete vendido",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Tiquete" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/api/v1/tickets/baloto": {
+      "post": {
+        "tags": ["Tiquetes"],
+        "summary": "Vender tiquete de Baloto",
+        "description": "Requiere VENDEDOR. Acepta de una a diez jugadas.",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["sorteoId", "jugadas"],
+                "properties": {
+                  "sorteoId": { "type": "integer", "example": 3 },
+                  "cliente": { "type": "string", "nullable": true },
+                  "jugadas": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "items": { "$ref": "#/components/schemas/JugadaBaloto" }
+                  }
+                }
+              },
+              "example": {
+                "sorteoId": 3,
+                "jugadas": [{ "numeros": [1, 2, 3, 4, 5], "superbalota": 6 }]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tiquete vendido",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Tiquete" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/api/v1/tickets": {
+      "get": {
+        "tags": ["Tiquetes"],
+        "summary": "Listar tiquetes",
+        "description": "Los vendedores solo consultan sus tiquetes; ADMIN puede consultar todos.",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "fecha",
+            "in": "query",
+            "description": "Filtrar por fecha de creación (AAAA-MM-DD).",
+            "schema": { "type": "string", "format": "date" }
+          },
+          {
+            "name": "estado",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["ACTIVO", "ANULADO", "PAGADO", "CADUCADO"] }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tiquetes visibles para el usuario autenticado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Tiquete" }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/tickets/{codigo}": {
+      "parameters": [
+        {
+          "name": "codigo",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string", "example": "CH-ABC12345" }
+        }
+      ],
+      "get": {
+        "tags": ["Tiquetes"],
+        "summary": "Consultar tiquete y resultado",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Tiquete con información del sorteo y estado de ganador",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/Tiquete" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "ganador": { "type": "boolean", "nullable": true }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/v1/tickets/{codigo}/anular": {
+      "parameters": [
+        {
+          "name": "codigo",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string" }
+        }
+      ],
+      "post": {
+        "tags": ["Tiquetes"],
+        "summary": "Anular tiquete",
+        "description": "Requiere autenticación. Un vendedor solo puede anular su tiquete dentro del plazo configurado; ADMIN puede anular tiquetes de otros vendedores. No se puede anular un tiquete de sorteo jugado.",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["motivo"],
+                "properties": { "motivo": { "type": "string", "minLength": 1 } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tiquete anulado",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Tiquete" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/api/v1/tickets/{codigo}/pagar": {
+      "parameters": [
+        {
+          "name": "codigo",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string" }
+        }
+      ],
+      "post": {
+        "tags": ["Tiquetes"],
+        "summary": "Pagar premio",
+        "description": "Requiere VENDEDOR. Solo paga una vez los premios de tiquetes activos de sorteos jugados y no caducados.",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Pago registrado",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Pago" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "410": { "$ref": "#/components/responses/Gone" }
+        }
+      }
+    },
+    "/api/v1/caja/resumen": {
+      "get": {
+        "tags": ["Caja"],
+        "summary": "Consultar resumen diario",
+        "description": "El vendedor consulta su propia caja. ADMIN puede indicar el vendedor con vendedorId.",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "fecha",
+            "in": "query",
+            "schema": { "type": "string", "format": "date" }
+          },
+          {
+            "name": "vendedorId",
+            "in": "query",
+            "description": "Solo aplica para ADMIN.",
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resumen de ventas, pagos y saldo esperado",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResumenCaja" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/caja/cierre": {
+      "post": {
+        "tags": ["Caja"],
+        "summary": "Cerrar caja del día",
+        "description": "Requiere VENDEDOR. Una caja ya cerrada no puede cerrarse otra vez.",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["efectivoReportado"],
+                "properties": {
+                  "efectivoReportado": { "type": "integer", "minimum": 0 },
+                  "fecha": { "type": "string", "format": "date" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Cierre registrado con diferencia y estado de caja",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CierreCaja" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "ApiError": {
+        "type": "object",
+        "required": ["error"],
+        "properties": { "error": { "type": "string" } }
+      },
+      "Usuario": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "usuario": { "type": "string" },
+          "nombre": { "type": "string" },
+          "rol": { "type": "string", "enum": ["ADMIN", "VENDEDOR"] }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string" },
+          "usuario": { "$ref": "#/components/schemas/Usuario" }
+        }
+      },
+      "Sorteo": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "tipo": { "type": "string", "enum": ["CHANCE", "BALOTO"] },
+          "nombre": { "type": "string" },
+          "fecha": { "type": "string", "format": "date-time" },
+          "estado": { "type": "string", "enum": ["ABIERTO", "JUGADO"] },
+          "resultado": {
+            "oneOf": [
+              { "type": "string" },
+              { "$ref": "#/components/schemas/JugadaBaloto" }
+            ],
+            "nullable": true
+          },
+          "acumulado": { "type": "integer" }
+        }
+      },
+      "ApuestaChance": {
+        "type": "object",
+        "description": "En modalidad COMBINADO se permiten números de tres o cuatro cifras; las cifras no pueden ser todas iguales.",
+        "required": ["numero", "valor"],
+        "properties": {
+          "numero": { "type": "string", "pattern": "^\\d{1,4}$", "example": "1234" },
+          "modalidad": { "type": "string", "enum": ["DIRECTO", "COMBINADO"], "default": "DIRECTO" },
+          "valor": { "type": "integer", "minimum": 500, "maximum": 50000, "multipleOf": 100 }
+        }
+      },
+      "JugadaBaloto": {
+        "description": "En venta, puede indicarse aleatoria=true o proporcionar los números y la superbalota.",
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["aleatoria"],
+            "additionalProperties": false,
+            "properties": {
+              "aleatoria": { "type": "boolean", "enum": [true] }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["numeros", "superbalota"],
+            "additionalProperties": false,
+            "properties": {
+              "numeros": {
+                "type": "array",
+                "minItems": 5,
+                "maxItems": 5,
+                "uniqueItems": true,
+                "items": { "type": "integer", "minimum": 1, "maximum": 43 }
+              },
+              "superbalota": { "type": "integer", "minimum": 1, "maximum": 16 }
+            }
+          }
+        ]
+      },
+      "Tiquete": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "codigo": { "type": "string" },
+          "tipo": { "type": "string", "enum": ["CHANCE", "BALOTO"] },
+          "sorteoId": { "type": "integer" },
+          "vendedorId": { "type": "integer" },
+          "cliente": { "type": "string", "nullable": true },
+          "apuestas": { "type": "array", "items": { "$ref": "#/components/schemas/ApuestaChance" } },
+          "jugadas": { "type": "array", "items": { "$ref": "#/components/schemas/JugadaBaloto" } },
+          "total": { "type": "integer" },
+          "estado": { "type": "string", "enum": ["ACTIVO", "ANULADO", "PAGADO", "CADUCADO"] },
+          "premio": { "type": "integer", "nullable": true },
+          "creadoEn": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Pago": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "ticketId": { "type": "integer" },
+          "codigo": { "type": "string" },
+          "usuarioId": { "type": "integer" },
+          "valor": { "type": "integer" },
+          "fecha": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ResumenCaja": {
+        "type": "object",
+        "properties": {
+          "vendedorId": { "type": "integer" },
+          "fecha": { "type": "string", "format": "date" },
+          "tiquetesVendidos": { "type": "integer" },
+          "tiquetesAnulados": { "type": "integer" },
+          "ventasChance": { "type": "integer" },
+          "ventasBaloto": { "type": "integer" },
+          "totalVendido": { "type": "integer" },
+          "premiosPagados": { "type": "integer" },
+          "totalPagado": { "type": "integer" },
+          "saldoEsperado": { "type": "integer" },
+          "cerrada": { "type": "boolean" }
+        }
+      },
+      "CierreCaja": {
+        "allOf": [
+          { "$ref": "#/components/schemas/ResumenCaja" },
+          {
+            "type": "object",
+            "properties": {
+              "efectivoReportado": { "type": "integer" },
+              "diferencia": { "type": "integer" },
+              "estado": { "type": "string", "enum": ["CUADRADA", "SOBRANTE", "FALTANTE"] },
+              "creadoEn": { "type": "string", "format": "date-time" }
+            }
+          }
+        ]
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Solicitud inválida",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "Unauthorized": {
+        "description": "Falta un token válido",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "Forbidden": {
+        "description": "El usuario no tiene permisos para la acción",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "NotFound": {
+        "description": "El recurso no existe",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "Conflict": {
+        "description": "La operación no está permitida en el estado actual",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "Gone": {
+        "description": "El premio caducó",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      }
+    }
+  }
+}

@@ -2,6 +2,12 @@ const { getDb, nextId } = require('../data/store');
 const AppError = require('../utils/AppError');
 const { fechaLocal } = require('../utils/fechas');
 
+/**
+ * Calcula ventas, premios pagados y saldo esperado de un vendedor para el día.
+ * @param {number} vendedorId Identificador del vendedor.
+ * @param {string} [fecha=fecha local actual] Día que se va a resumir.
+ * @returns {object} Resumen diario de caja.
+ */
 function resumen(vendedorId, fecha = fechaLocal()) {
   const db = getDb();
   const delDia = (iso) => fechaLocal(iso) === fecha;
@@ -28,6 +34,12 @@ function resumen(vendedorId, fecha = fechaLocal()) {
   };
 }
 
+/**
+ * Cierra la caja diaria de un vendedor y registra cualquier diferencia.
+ * @param {number} vendedorId Identificador del vendedor.
+ * @param {{efectivoReportado: number, fecha?: string}} data Efectivo reportado y fecha opcional.
+ * @returns {object} Cierre guardado con el estado del saldo.
+ */
 function cerrar(vendedorId, { efectivoReportado, fecha = fechaLocal() }) {
   if (!Number.isInteger(efectivoReportado) || efectivoReportado < 0) {
     throw new AppError('El efectivo reportado debe ser un entero positivo');
