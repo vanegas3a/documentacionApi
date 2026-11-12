@@ -32,7 +32,7 @@ API REST para la operación de un puesto de apuestas: autenticación por roles, 
 1. Clona el repositorio y entra a su carpeta:
 
    ```bash
-   git clone <URL_DEL_REPOSITORIO>
+   git clone https://github.com/vanegas3a/documentacionApi.git
    cd documentacionApi
    ```
 
